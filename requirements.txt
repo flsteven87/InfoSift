@@ -6,3 +6,4 @@ pytube
 # 15.0.0 bug pytube.exceptions.RegexMatchError: get_throttling_function_name: could not find match for multiple
 # Need to install from clone fixed version pytube https://github.com/pytube/pytube/issues/1678
 pydub
+tiktoken
