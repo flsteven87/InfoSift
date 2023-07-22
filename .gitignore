@@ -163,3 +163,5 @@ cython_debug/
 topics/*
 video/*
 transcript/*
+summary/*
+.DS_Store
