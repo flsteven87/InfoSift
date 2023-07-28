@@ -10,7 +10,7 @@ conn = sqlite3.connect('./sqlite/infosift.db')
 c = conn.cursor()
 
 # Write the query
-query = "SELECT * FROM video"
+query = "SELECT video_id, title FROM video"
 
 # Use pandas to pass sql query using connection from SQLite3
 df = pd.read_sql_query(query, conn)

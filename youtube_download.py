@@ -37,6 +37,17 @@ class YoutubeDownload:
         # None of the above cases match, so raise an exception
         raise ValueError(f"Invalid YouTube URL: {url}")       
     
+    def check_in_db(self):
+
+        sql = f'''
+            SELECT *
+            FROM video
+            WHERE video_id = '{self.video_id}'
+        '''
+        self.cursor.execute(sql)
+        video_info = self.cursor.fetchone()
+        return video_info
+
     def download(self):
         video = self.yt.streams.get_highest_resolution()
         video.download(output_path='./video/', filename=f'{self.video_id}.mp4')
@@ -79,47 +90,42 @@ class YoutubeDownload:
         audio = audio.set_frame_rate(new_rate)
         audio.export(output_path, format="wav")
 
-    # Money
-    def whisper_api(self,format='wav'):
-        audio_file= open("/path/to/file/audio.mp3", "rb")
-        transcript = openai.Audio.transcribe("whisper-1", audio_file, language='zh')
-        # Export to txt
-        with open(f'./transcript/{self.video_id}.{format}.txt', 'w') as f:
-            f.write(transcript['text'])
-
-
     def whisper_cpp(self):
         command = f"./whisper/whisper.cpp/main -m ./whisper/whisper.cpp/models/ggml-large.bin -l zh -ovtt -f '{self.current_folder}/video/{self.video_id}.wav'"
         print(command)
         os.system(command)
 
         source_file = f'./video/{self.video_id}.wav.vtt'
-        destination_folder = './transcript/'
+        destination_folder = './transcript/vtt/'
         filename = os.path.basename(source_file)
         destination_file = os.path.join(destination_folder, filename)
         os.replace(source_file, destination_file)
 
-        subtitles = WebVTT().read(f'./transcript/{self.video_id}.wav.vtt')
-        with open(f'./transcript/{self.video_id}.wav.txt', 'w', encoding='utf-8') as txt_file:
+        subtitles = WebVTT().read(f'./transcript/vtt/{self.video_id}.wav.vtt')
+        with open(f'./transcript/txt/{self.video_id}.wav.txt', 'w', encoding='utf-8') as txt_file:
             for subtitle in subtitles:
                 txt_file.write(subtitle.text + '\n')
         print(f"Conversion successful. TXT file saved as {self.video_id}.wav.txt.")
 
     def run(self):
-        self.download()
-        print(f"Download Completed: {self.yt.title}")
-        self.convert_mp4_to_wav(f'./video/{self.video_id}.mp4',f'./video/{self.video_id}.wav')
-        print(f"mp4 to wav Completed: {self.yt.title}")
-        rate = 16000
-        self.resample_wav(f'./video/{self.video_id}.wav',f'./video/{self.video_id}.wav', new_rate=rate)
-        print(f'Resample to {rate} Hz Completed: {self.yt.title}')
-        # self.whisper_api(format='mp4')
-        self.whisper_cpp()
-        # self.whisper_cpp_streamlit()
-        print(f'Video to transcript Completed: {self.yt.title}')
+        video_info = self.check_in_db()
+        if video_info is None:
+            # Run the full download and transcription process if the video is not in the database
+            self.download()
+            print(f"Download Completed: {self.yt.title}")
+            self.convert_mp4_to_wav(f'./video/{self.video_id}.mp4',f'./video/{self.video_id}.wav')
+            print(f"mp4 to wav Completed: {self.yt.title}")
+            rate = 16000
+            self.resample_wav(f'./video/{self.video_id}.wav',f'./video/{self.video_id}.wav', new_rate=rate)
+            print(f'Resample to {rate} Hz Completed: {self.yt.title}')
+            self.whisper_cpp()
+            print(f'Video to transcript Completed: {self.yt.title}')
+        else:
+            print(f'Video already in database: {self.yt.title}')
 
-    # def run(self):
-    #     # your existing run method implementation
+    def transcript_only(self):
+        self.extract_video_id(self.yt_url)
+        self.whisper_cpp()
 
     def __del__(self):
         self.conn.close()
@@ -135,6 +141,5 @@ def parse_args():
 if __name__ == '__main__':
 
     args = parse_args()
-    YoutubeDownload(
-        yt_url = args.url,
-    ).run()
+    YoutubeDownload(yt_url = args.url,).run()
+    # YoutubeDownload(yt_url = args.url,).transcript_only()
