@@ -8,7 +8,7 @@ def read_transcript_file(path):
 
 # Streamlit app main function
 def main():
-    st.title("YouTube Video Downloader and Transcriber")
+    st.title("YouTube Summarizer")
     
     yt_url = st.text_input("Enter YouTube Video URL:", value="")
     

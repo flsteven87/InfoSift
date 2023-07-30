@@ -11,3 +11,7 @@ openai-whisper
 #pip install -U openai-whisper
 streamlit
 webvtt-py
+matplotlib
+scipy
+jupyter
+ipykernel
