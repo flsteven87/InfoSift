@@ -55,14 +55,31 @@ llm4 = ChatOpenAI(temperature=0,
                   model_name="gpt-4-0613",
                 #   model_name="gpt-4-32k-0613",
                   request_timeout = 180,
-                  max_tokens=3000
+                #   max_tokens=3000
                  )
 
 class YoutubeSummary:
-    def __init__(self):
-        self.file_name = '財報狗_240'
-        self.transcript_path = f'./transcript/{self.file_name}.wav.txt'
-        self.topics_structured = []
+    def __init__(self, video_id):
+        self.video_id = video_id
+        self.transcript_file_path = f'./transcript/txt/{self.video_id}.wav.txt'
+        self.transcript = self.load_transcript()
+        # self.topics_structured = []
+
+    def load_transcript(self):
+        with open(self.transcript_file_path, 'r') as f:
+            transcript = f.read()
+        return transcript
+
+    def evaluate_transcript(self):
+
+        transcript = self.load_transcript()
+        print(transcript[:30])
+        print(f"Transcript total tokens: {llm3.get_num_tokens(transcript)}")
+
+        # Load up your text splitter
+        # text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=500)
+        # docs = text_splitter.create_documents([transcript])
+        # print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
 
     def gen_bullet_points(self):
 
@@ -147,13 +164,11 @@ class YoutubeSummary:
 
     def gen_topics(self):
 
-        with open(self.transcript_path) as file:
-            transcript = file.read()
-        print(transcript[:30])
+        print(self.transcript[0:30])
 
         # Load up your text splitter
-        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=500)
-        docs = text_splitter.create_documents([transcript])
+        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=2000, chunk_overlap=200)
+        docs = text_splitter.create_documents([self.transcript])
         print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
 
         # Map with several chunks
@@ -171,8 +186,7 @@ class YoutubeSummary:
 
         chat_prompt_combine = ChatPromptTemplate.from_messages(messages=[system_message_prompt_reduce, human_message_prompt_reduce])
 
-
-        chain = load_summarize_chain(llm4,
+        chain = load_summarize_chain(llm3,
                              chain_type="map_reduce",
                              map_prompt=chat_prompt_map,
                              combine_prompt=chat_prompt_combine,
@@ -181,7 +195,7 @@ class YoutubeSummary:
         topics = chain.run({"input_documents": docs})
         print (topics)
 
-        with open(f"./topics/{self.file_name}.txt", "w") as file:
+        with open(f"./topics/{self.video_id}.txt", "w") as file:
             file.write(topics)
 
     def functioning_api(self):
@@ -205,27 +219,20 @@ class YoutubeSummary:
         # Using gpt3.5 here because this is an easy extraction task and no need to jump to gpt4
         chain = create_extraction_chain(schema, llm3)
 
-        with open(f'./topics/{self.file_name}.txt') as file:
-            topics = file.read()
+        with open(f'./topics/{self.video_id}.txt') as file:
+            self.topics = file.read()
 
-        print(topics)
-
-        self.topics_structured = chain.run(topics)
+        self.topics_structured = chain.run(self.topics)
         topics_structured = ' '.join(str(item) for item in self.topics_structured)
 
-        with open(f"./topics/{self.file_name}_structured.txt", "w") as file:
+        with open(f"./topics/{self.video_id}_structured.txt", "w") as file:
             file.write(topics_structured)
 
     def embedding(self):
-        
-        # index_name = "statementdog-podcast-232"
-        # pinecone.init(os.environ["PINECONE_API_KEY"], environment="asia-southeast1-gcp-free")
-        # # pinecone.create_index("statementdog-podcast-232", dimension=1536, metric="euclidean")
-        
-        with open(self.transcript_path) as file:
-            transcript = file.read()
+                
+        transcript = self.transcript
 
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=3000, chunk_overlap=400)
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=50)
         docs = text_splitter.create_documents([transcript])
         print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
 
@@ -242,9 +249,6 @@ class YoutubeSummary:
         print(vectordb._collection.count())
 
         return vectordb
-        # # index = pinecone.Index("statementdog_podcast_232")
-        # # index.upsert(embeddings)
-        # docsearch = Pinecone.from_documents(docs, embeddings, index_name=index_name)
 
     def retriever(self):
 
@@ -307,22 +311,14 @@ class YoutubeSummary:
             file.write(expanded_topic)
         print ("\n\n")
 
-    def query(self):
-        print('TBC')
-        # index_name = 'statementdog-podcast-232'
-        # index = pinecone.Index(index_name)
-        # print(index.query("主題：美光科技的股票狀況", top_k=1, include_metadata=True))
-
-    def evaluation(self):
-        print('TBC')
 
 if __name__ == '__main__':
-    
-    YoutubeSummary().gen_topics()
+
+    # YoutubeSummary().evaluate_transcript()    
+    # YoutubeSummary().gen_bullet_points()
+    YoutubeSummary(video_id).gen_topics()
     # YoutubeSummary().functioning_api()
     # YoutubeSummary().run_bullet_points_summary()
     # vectordb = YoutubeSummary().embedding()
     # YoutubeSummary().retriever()
     # YoutubeSummary().query()
-    # YoutubeSummary().evaluation()
-    # YoutubeSummary().gen_bullet_points()

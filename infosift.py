@@ -1,8 +1,9 @@
 import streamlit as st
 from youtube_download import YoutubeDownload
+from youtube_summary import YoutubeSummary
 
 # Function to read transcript file
-def read_transcript_file(path):
+def read_txt_file(path):
     with open(path, 'r', encoding='utf-8') as file:
         return file.read()
 
@@ -24,11 +25,11 @@ def main():
         if video_info:
             st.success(f"Video is in the database. Displaying video info...")
             st.write(video_info)
-            transcript_path = f"./transcript/txt/{video_id}.wav.txt"
-            transcript = read_transcript_file(transcript_path)
-            st.write("Transcript:")
-            st.text_area("", value=transcript, height=200, max_chars=None)
-            st.download_button("Download Transcript", transcript, file_name="transcript.txt")
+            # transcript_path = f"./transcript/txt/{video_id}.wav.txt"
+            # transcript = read_txt_file(transcript_path)
+            # st.write("Transcript:")
+            # st.text_area("", value=transcript, height=200, max_chars=None)
+            # st.download_button("Download Transcript", transcript, file_name="transcript.txt")
 
         else:
             with st.spinner("Downloading video..."):
@@ -53,11 +54,22 @@ def main():
                 yt_download.whisper_cpp()
                 
             st.success("Transcription process completed.")
-            transcript_path = f"./transcript/txt/{video_id}.wav.txt"
-            transcript = read_transcript_file(transcript_path)
-            st.write("Transcript:")
-            st.text_area("", value=transcript, height=200, max_chars=None)
-            st.download_button("Download Transcript", transcript, file_name="transcript.txt")
+
+        transcript_path = f"./transcript/txt/{video_id}.wav.txt"
+        transcript = read_txt_file(transcript_path)
+        st.write("Transcript:")
+        st.text_area("", value=transcript, height=200, max_chars=None)
+        st.download_button("Download Transcript", transcript, file_name="transcript.txt")
+
+        with st.spinner("Generating topics..."):
+            yt_summary = YoutubeSummary(video_id)
+            yt_summary.gen_topics()
+        
+        st.success("Topics Generated.")
+        topics_path = f"./topics/{video_id}.txt"
+        topics = read_txt_file(topics_path)
+        st.write("Transcript:")
+        st.text_area("", value=topics, height=200, max_chars=None)
 
 if __name__ == "__main__":
     main()
