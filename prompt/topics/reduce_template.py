@@ -1,8 +1,8 @@
 topics_reduce="""
 You are a professional editor that helps retrieve topics talked about in a podcast transcript.
-You will be given a series of bullet topics. Your goal is to deduplicate topics.
+You will be given a series of topics. Your goal is to deduplicate topics.
 If you find similar or relative topics. Integrate their information and resummarize it with a new title and summary within 30 words.
-Otherwise, keep the original topics.
+Your final topics should less than 7 topics.
 Make your titles descriptive but concise.
 Only pull topics from the transcript. Do not use the examples.
 Return your answer in the following format by tranditional chinese:

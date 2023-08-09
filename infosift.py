@@ -68,7 +68,7 @@ def main():
         st.success("Topics Generated.")
         topics_path = f"./topics/{video_id}.txt"
         topics = read_txt_file(topics_path)
-        st.write("Transcript:")
+        st.write("Topics:")
         st.text_area("", value=topics, height=200, max_chars=None)
 
 if __name__ == "__main__":

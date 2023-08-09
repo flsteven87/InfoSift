@@ -6,21 +6,21 @@ load_dotenv()
 # OpenAI
 import openai
 os.environ["OPENAI_API_KEY"] = os.environ.get('OPENAI_API_KEY')
-from prompt.bullet_points import version2
+# from prompt.bullet_points import version2
 
 # LangChain Plus
 import os
-os.environ["LANGCHAIN_TRACING_V2"] = "true"
-os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus"
-os.environ["LANGCHAIN_API_KEY"] = os.environ.get('LANGCHAIN_API_KEY')
-os.environ["LANGCHAIN_SESSION"] = "InfoSift"
+# os.environ["LANGCHAIN_TRACING_V2"] = "true"
+# os.environ["LANGCHAIN_ENDPOINT"] = "https://api.langchain.plus"
+# os.environ["LANGCHAIN_API_KEY"] = os.environ.get('LANGCHAIN_API_KEY')
+# os.environ["LANGCHAIN_SESSION"] = "InfoSift"
 
 # LangChain basics
 from langchain.chat_models import ChatOpenAI
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains.summarize import load_summarize_chain
-from langchain.chains import create_extraction_chain
-from langchain.callbacks import get_openai_callback
+# from langchain.chains import create_extraction_chain
+# from langchain.callbacks import get_openai_callback
 
 # Vector Store and retrievals
 from langchain.embeddings.openai import OpenAIEmbeddings
@@ -41,6 +41,8 @@ from langchain.prompts.chat import (
 
 from prompt.topics import map_template
 from prompt.topics import reduce_template
+
+from prompt.bullet_points import version2
 
 
 # Creating two versions of the model so I can swap between gpt3.5 and gpt4
@@ -80,49 +82,6 @@ class YoutubeSummary:
         # text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=500)
         # docs = text_splitter.create_documents([transcript])
         # print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
-
-    def gen_bullet_points(self):
-
-        bullet_points = []
-
-        with open(self.transcript_path) as file:
-            transcript = file.read()
-        print(transcript[:30])
-
-        # Load up your text splitter
-        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=400)
-        docs = text_splitter.create_documents([transcript])
-        print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
-
-        for doc in docs:
-            # print(len(doc.page_content))
-            # print(doc.page_content[:30])
-
-            messages = [
-                {"role": "system", "content": version2.system},
-                # {"role": "assistant", "content": doc.page_content},
-                {"role": "user", "content": version2.user + '\n\n' + f'transcript: {doc.page_content}'},
-            ]
-
-            # print(messages)
-
-            response = openai.ChatCompletion.create(
-                model="gpt-4-0613",
-                messages=messages,
-                temperature=0
-            )
-
-            bullet_points.append(response['choices'][0]['message']['content'])
-            print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
-
-        bullet_points = "\n".join(bullet_points)
-        paragraphs = bullet_points.split("\n")
-        bullet_points = [p for p in paragraphs if p.startswith("-")]
-
-        # Export to txt
-        with open(f'./bullet_points/{self.file_name}_version2.txt', 'w') as f:
-            for item in bullet_points:
-                f.write("%s\n" % item)
 
     def run_bullet_points_summary(self):
         with open(self.transcript_path) as file:
@@ -243,12 +202,13 @@ class YoutubeSummary:
             documents = docs,
             embedding = embedding,
             persist_directory = persist_directory
+            # metadata = self.video_id
         )
 
         vectordb.persist()
         print(vectordb._collection.count())
 
-        return vectordb
+        # return vectordb
 
     def retriever(self):
 
@@ -312,13 +272,126 @@ class YoutubeSummary:
         print ("\n\n")
 
 
+    def bullet_points(self):
+
+        bullet_points = []
+
+        transcript = self.load_transcript()
+
+        # Load up your text splitter
+        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=200)
+        docs = text_splitter.create_documents([transcript])
+        print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
+
+        print("Generating Bullet Points...")
+        for doc in docs:
+            # print(len(doc.page_content))
+            # print(doc.page_content[:30])
+
+            messages = [
+                {"role": "system", "content": version2.map_system},
+                # {"role": "assistant", "content": doc.page_content},
+                {"role": "user", "content": version2.map_user + '\n\n' + f'transcript: {doc.page_content}'},
+            ]
+
+            # print(messages)
+
+            response = openai.ChatCompletion.create(
+                model="gpt-4-0613",
+                messages=messages,
+                temperature=0
+            )
+
+            bullet_points.append(response['choices'][0]['message']['content'])
+            print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
+
+        bullet_points = "\n".join(bullet_points)
+        paragraphs = bullet_points.split("\n")
+        bullet_points = [p for p in paragraphs if p.startswith("-")]
+
+        # Export to txt
+        with open(f'./bullet_points/{self.video_id}_version2.txt', 'w') as f:
+            for item in bullet_points:
+                f.write("%s\n" % item)       
+
+
+    def cluster(self):
+
+        cluster = ''
+        with open(f'./bullet_points/{self.video_id}_version2.txt', 'r') as f:
+            bullet_points = f.read()
+
+        print("Clustering...")
+        messages = [
+            {"role": "system", "content": version2.map_system},
+            # {"role": "assistant", "content": doc.page_content},
+            {"role": "user", "content": version2.cluster_prompt + '\n\n' + f'bullet points: {bullet_points}'},
+        ]
+
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0613",
+            messages=messages,
+            temperature=0
+        )
+
+        cluster = response['choices'][0]['message']['content']
+        print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
+
+        # Export to txt
+        with open(f'./bullet_points/{self.video_id}_version2_cluster.txt', 'w') as f:
+            f.write(cluster)       
+
+
+    def title_and_summary(self):
+        
+        with open(f'./bullet_points/{self.video_id}_version2_cluster.txt', 'r') as f:
+            cluster = f.read()
+
+        print("Summary & Title")
+
+        messages = [
+            {"role": "system", "content": version2.map_system},
+            # {"role": "assistant", "content": doc.page_content},
+            {"role": "user", "content": version2.podcast_summary_prompt + '\n\n' + f'cluster: {cluster}'},
+        ]
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0613",
+            messages=messages,
+            temperature=0
+        )
+
+        summary = response['choices'][0]['message']['content']
+        print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
+
+        messages = [
+            {"role": "system", "content": version2.map_system},
+            # {"role": "assistant", "content": doc.page_content},
+            {"role": "user", "content": version2.title_prompt + '\n\n' + f'cluster: {summary}'},
+        ]
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0613",
+            messages=messages,
+            temperature=0
+        )
+
+        title = response['choices'][0]['message']['content']
+        print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
+
+        # Export to txt
+        with open(f'./bullet_points/{self.video_id}_version2_summary.txt', 'w') as f:
+            f.write(title + '\n\n' + summary)       
+
 if __name__ == '__main__':
 
     # YoutubeSummary().evaluate_transcript()    
-    # YoutubeSummary().gen_bullet_points()
-    YoutubeSummary(video_id).gen_topics()
+    # YoutubeSummary(video_id).gen_topics()
     # YoutubeSummary().functioning_api()
     # YoutubeSummary().run_bullet_points_summary()
-    # vectordb = YoutubeSummary().embedding()
+    # YoutubeSummary('Bazoq4mGWdU').embedding()
     # YoutubeSummary().retriever()
     # YoutubeSummary().query()
+    video_id = 'lihE0cB2N-U'
+    print(f"Video ID: {video_id}")
+    YoutubeSummary(video_id).bullet_points()
+    YoutubeSummary(video_id).cluster()
+    YoutubeSummary(video_id).title_and_summary()

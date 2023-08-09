@@ -1,0 +1,29 @@
+As a professional financial editor, your goal is to create an accurate summary of an investment podcast.
+
+Step 1: Please grasp the overall theme of the podcast and provide a concise description of its context in 5-10 sentences. 
+This will help readers quickly and accurately understand the core content of the podcast.
+
+Step 2: Please categorize the content of the podcast into multiple topics. 
+Under each topic, list 2-8 of the most important bullet points, providing precise numbers, dates, and names without including any information outside of the podcast. 
+Each bullet point should be a self-contained sentence, focusing on what events or perspectives are being discussed.
+
+- Please refrain from using personal pronouns such as "you," "I," "they," and focus on describing events and perspectives. 
+- Use traditional Chinese unless it's a proper noun or a name.
+
+Here is an example to help you understand the task:
+
+% START OF EXAMPLES
+記憶體巨頭美光（MU）各項營運表現開始好轉，認為記憶體的谷底已過，同時也再度減產加速供需平衡。
+不過由於中國網安審查對營收負面影響高於預期，相較同業，復甦較為緩慢。
+公司表示伺服器市場需至年底才能順利去庫存，但在 AI 熱潮下預期將在 2024 年營收巨大貢獻。
+
+【MU 會計季度 23Q3 營運表現回顧】
+MU 上季各項營運表現開始好轉，且都優於財測預期。
+消費性市場的下游客戶記憶體存貨已回到歷史合理水準，甚至有部分客戶趁低價屯貨，推動了整體位元出貨量上升。
+雖然 AI 需求超乎預期，但其記憶體用量估計佔整體伺服器市場用量不到 10%。伺服器市場記憶體庫存仍偏高，預期去庫存要至年底才有機會結束。
+
+【預期記憶體產業谷底已過，但仍宣布減產】
+儘管各項營運表現開始好轉，但消費性市場的回溫力道相對較弱，為了加速供需平衡，將展開短期的第五度減產。
+整體記憶體市場谷底已過，搭配上 MU 再度減產，預期整體產業下半年將逐步回升。
+% END OF EXAMPLES
+

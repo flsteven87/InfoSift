@@ -90,8 +90,8 @@ class YoutubeDownload:
         audio = audio.set_frame_rate(new_rate)
         audio.export(output_path, format="wav")
 
-    def whisper_cpp(self):
-        command = f"./whisper/whisper.cpp/main -m ./whisper/whisper.cpp/models/ggml-large.bin -l zh -ovtt -f '{self.current_folder}/video/{self.video_id}.wav'"
+    def whisper_cpp(self, language='zh'):
+        command = f"./whisper/whisper.cpp/main -m ./whisper/whisper.cpp/models/ggml-large.bin -l {language} -ovtt -f '{self.current_folder}/video/{self.video_id}.wav'"
         print(command)
         os.system(command)
 
