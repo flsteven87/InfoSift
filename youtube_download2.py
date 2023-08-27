@@ -4,7 +4,7 @@ import openai
 import argparse
 from urllib.parse import parse_qs, urlparse
 from pytube import YouTube
-# import yt_dlp as ydl
+import yt_dlp as ydl
 from pydub import AudioSegment
 from webvtt import WebVTT
 import sqlite3
@@ -48,6 +48,16 @@ class YoutubeDownload:
         self.cursor.execute(sql)
         video_info = self.cursor.fetchone()
         return video_info
+
+    
+    def download_with_yt_dlp(self):
+        options = {
+            'format': 'bestvideo+bestaudio/best',
+            'outtmpl': f'./video/{self.video_id}.mp4'
+        }
+
+        with ydl.YoutubeDL(options) as y:
+            y.download([f'https://www.youtube.com/watch?v={self.video_id}'])
 
     def download(self):
         video = self.yt.streams.get_highest_resolution()
@@ -104,18 +114,25 @@ class YoutubeDownload:
 
         subtitles = WebVTT().read(f'./transcript/vtt/{self.video_id}.wav.vtt')
         with open(f'./transcript/txt/{self.video_id}.wav.txt', 'w', encoding='utf-8') as txt_file:
-            txt_file.write(self.yt.title + '\n')
             for subtitle in subtitles:
                 txt_file.write(subtitle.text + '\n')
         print(f"Conversion successful. TXT file saved as {self.video_id}.wav.txt.")
 
-    def run(self):
+    
+    def run(self, downloader='pytube'):
         video_info = self.check_in_db()
         if video_info is None:
             # Run the full download and transcription process if the video is not in the database
-            self.download()
+            if downloader == 'pytube':
+                self.download()
+                self.convert_mp4_to_wav(f'./video/{self.video_id}.mp4',f'./video/{self.video_id}.wav')
+            elif downloader == 'yt_dlp':
+                self.download_with_yt_dlp()
+                self.convert_mp4_to_wav(f'./video/{self.video_id}.mp4.webm',f'./video/{self.video_id}.wav')
+                # os.rename(f'./video/{self.video_id}.mp4.webm',f'./video/{self.video_id}.mp4')
+            else:
+                raise ValueError("Invalid downloader choice. Please choose 'pytube' or 'yt_dlp'.")
             print(f"Download Completed: {self.yt.title}")
-            self.convert_mp4_to_wav(f'./video/{self.video_id}.mp4',f'./video/{self.video_id}.wav')
             print(f"mp4 to wav Completed: {self.yt.title}")
             rate = 16000
             self.resample_wav(f'./video/{self.video_id}.wav',f'./video/{self.video_id}.wav', new_rate=rate)
@@ -123,7 +140,7 @@ class YoutubeDownload:
             self.whisper_cpp()
             print(f'Video to transcript Completed: {self.yt.title}')
         else:
-            print(f'Video already in database: {self.yt.title}. Video ID: {self.video_id}')
+            print(f'Video already in database: {self.yt.title}')
 
     def transcript_only(self):
         self.extract_video_id(self.yt_url)
@@ -140,7 +157,14 @@ def parse_args():
 
 # usage: python -m youtube_download -u 'https://www.youtube.com/watch?v=ZQyMZKQessg&t=31s&ab_channel=%E8%B2%A1%E5%A0%B1%E7%8B%97'
 
+
 if __name__ == '__main__':
+
+    args = parse_args()
+    downloader_choice = input("Choose downloader (pytube/yt_dlp): ").strip().lower()
+    YoutubeDownload(yt_url=args.url).run(downloader=downloader_choice)
+    # YoutubeDownload(yt_url=args.url).transcript_only()
+
 
     args = parse_args()
     YoutubeDownload(yt_url = args.url,).run()

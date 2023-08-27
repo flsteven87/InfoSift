@@ -8,6 +8,11 @@ import openai
 os.environ["OPENAI_API_KEY"] = os.environ.get('OPENAI_API_KEY')
 # from prompt.bullet_points import version2
 
+# Get token counter
+import tiktoken
+# Get the encoding for a specific model
+enc = tiktoken.get_encoding("cl100k_base")
+
 # LangChain Plus
 import os
 # os.environ["LANGCHAIN_TRACING_V2"] = "true"
@@ -29,8 +34,29 @@ from langchain.chains import RetrievalQA
 from langchain.vectorstores import Chroma
 # import pinecone
 
-from prompt import map_template 
-from prompt import reduce_template
+# from prompt import map_template 
+# from prompt import reduce_template
+
+# Summary evluation
+# import gensim
+# from gensim import corpora
+# from gensim.models import LdaModel
+# from nltk.tokenize import word_tokenize
+# from nltk.corpus import stopwords
+
+# BERTopics evaluate summary quality
+from bertopic import BERTopic
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+import nltk
+nltk.download('punkt')
+from nltk.tokenize import sent_tokenize
+
+# LDA evaluate summary quality
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import LatentDirichletAllocation
+
 
 # Chat Prompt templates for dynamic values
 from langchain.prompts.chat import (
@@ -39,11 +65,9 @@ from langchain.prompts.chat import (
     HumanMessagePromptTemplate
 )
 
-from prompt.topics import map_template
-from prompt.topics import reduce_template
-
+from prompt.topics import version1
 from prompt.bullet_points import version2
-
+from prompt.single_summary import version1
 
 # Creating two versions of the model so I can swap between gpt3.5 and gpt4
 llm3 = ChatOpenAI(temperature=0,
@@ -64,6 +88,7 @@ class YoutubeSummary:
     def __init__(self, video_id):
         self.video_id = video_id
         self.transcript_file_path = f'./transcript/txt/{self.video_id}.wav.txt'
+        self.summary_file_path = f'./bullet_points/{self.video_id}_version2_summary.txt'
         self.transcript = self.load_transcript()
         # self.topics_structured = []
 
@@ -75,52 +100,23 @@ class YoutubeSummary:
     def evaluate_transcript(self):
 
         transcript = self.load_transcript()
-        print(transcript[:30])
-        print(f"Transcript total tokens: {llm3.get_num_tokens(transcript)}")
+        # print(transcript[:30])
+        print(f"Transcript total tokens: {len(enc.encode(transcript))}")
+
+        return len(enc.encode(transcript))
 
         # Load up your text splitter
         # text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=500)
         # docs = text_splitter.create_documents([transcript])
         # print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
 
-    def run_bullet_points_summary(self):
-        with open(self.transcript_path) as file:
-            transcript = file.read()
-        print(transcript[:30])
+    def evaluate_bulle_points(self):
+        with open(f'./bullet_points/{self.video_id}_mp_v2_bullet_points.txt', 'r') as f:
+            bullet_points = f.read()
+        print(f"Bullet Points total tokens: {len(enc.encode(bullet_points))}")
 
-        # Load up your text splitter
-        text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=800)
-        docs = text_splitter.create_documents([transcript])
-        print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
-
-        # Map with several chunks
-        system_message_prompt_map = SystemMessagePromptTemplate.from_template(map_template.bullet_points)
-
-        human_template="Transcript: {text}" # Simply just pass the text as a human message
-        human_message_prompt_map = HumanMessagePromptTemplate.from_template(human_template)
-
-        chat_prompt_map = ChatPromptTemplate.from_messages(messages=[system_message_prompt_map, human_message_prompt_map])
-        # Reduce to final topics
-        system_message_prompt_reduce = SystemMessagePromptTemplate.from_template(reduce_template.bullet_points_summary)
-
-        human_template="Transcript: {text}" # Simply just pass the text as a human message
-        human_message_prompt_reduce = HumanMessagePromptTemplate.from_template(human_template)
-
-        chat_prompt_combine = ChatPromptTemplate.from_messages(messages=[system_message_prompt_reduce, human_message_prompt_reduce])
-
-
-        chain = load_summarize_chain(llm4,
-                             chain_type="map_reduce",
-                             map_prompt=chat_prompt_map,
-                             combine_prompt=chat_prompt_combine,
-                             verbose=True
-                            )
-        final_summary = chain.run({"input_documents": docs})
-        print (final_summary)
-
-        with open(f"./summary/{self.file_name}_bullet_points.txt", "w") as file:
-            file.write(final_summary)
-
+        return len(enc.encode(bullet_points))
+        
     def gen_topics(self):
 
         print(self.transcript[0:30])
@@ -131,7 +127,7 @@ class YoutubeSummary:
         print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
 
         # Map with several chunks
-        system_message_prompt_map = SystemMessagePromptTemplate.from_template(map_template.topics_map)
+        system_message_prompt_map = SystemMessagePromptTemplate.from_template(version1.topics_map)
 
         human_template="Transcript: {text}" # Simply just pass the text as a human message
         human_message_prompt_map = HumanMessagePromptTemplate.from_template(human_template)
@@ -310,7 +306,7 @@ class YoutubeSummary:
         bullet_points = [p for p in paragraphs if p.startswith("-")]
 
         # Export to txt
-        with open(f'./bullet_points/{self.video_id}_version2.txt', 'w') as f:
+        with open(f'./bullet_points/{self.video_id}_mp_v2_bullet_points.txt', 'w') as f:
             for item in bullet_points:
                 f.write("%s\n" % item)       
 
@@ -318,7 +314,7 @@ class YoutubeSummary:
     def cluster(self):
 
         cluster = ''
-        with open(f'./bullet_points/{self.video_id}_version2.txt', 'r') as f:
+        with open(f'./bullet_points/{self.video_id}_mp_v2_bullet_points.txt', 'r') as f:
             bullet_points = f.read()
 
         print("Clustering...")
@@ -338,13 +334,13 @@ class YoutubeSummary:
         print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
 
         # Export to txt
-        with open(f'./bullet_points/{self.video_id}_version2_cluster.txt', 'w') as f:
+        with open(f'./bullet_points/{self.video_id}_mp_v2_cluster.txt', 'w') as f:
             f.write(cluster)       
 
 
     def title_and_summary(self):
         
-        with open(f'./bullet_points/{self.video_id}_version2_cluster.txt', 'r') as f:
+        with open(f'./bullet_points/{self.video_id}_mp_v2_cluster.txt', 'r') as f:
             cluster = f.read()
 
         print("Summary & Title")
@@ -366,7 +362,7 @@ class YoutubeSummary:
         messages = [
             {"role": "system", "content": version2.map_system},
             # {"role": "assistant", "content": doc.page_content},
-            {"role": "user", "content": version2.title_prompt + '\n\n' + f'cluster: {summary}'},
+            {"role": "user", "content": version2.title_prompt + '\n\n' + f'summary: {summary}' +'\n\n'+ f'cluster: {cluster}'},
         ]
         response = openai.ChatCompletion.create(
             model="gpt-4-0613",
@@ -378,20 +374,119 @@ class YoutubeSummary:
         print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
 
         # Export to txt
-        with open(f'./bullet_points/{self.video_id}_version2_summary.txt', 'w') as f:
+        with open(f'./summary/{self.video_id}_mp_v2_summary.txt', 'w') as f:
             f.write(title + '\n\n' + summary)       
+
+
+    def bertopic(self):
+
+        with open(self.summary_file_path, 'r') as f:
+            self.summary = f.read()
+
+        # print(self.transcript[0:20])
+        # print(self.summary[0:20])
+
+        if not self.transcript.strip() or not self.summary.strip():
+            raise ValueError("Transcript or Summary is empty or only contains whitespace characters.")
+        
+        # transcript_sentences = sent_tokenize(self.transcript)
+        transcript_sentences = self.transcript.split('\n')
+
+        # summary_sentences = sent_tokenize(self.summary)
+        summary_sentences = self.summary.split('\n')
+
+        # # 使用 chunks 切    
+        # text_splitter = RecursiveCharacterTextSplitter(separators=["\n\n", "\n", " "], chunk_size=4000, chunk_overlap=500)
+        # docs = text_splitter.create_documents([self.transcript])
+        # print (f"You have {len(docs)} docs. First doc is {llm3.get_num_tokens(docs[0].page_content)} tokens")
+
+        # transcript_sentences = []
+        # for doc in docs:
+        #     transcript_sentences.append(doc.page_content)
+
+        # print(len(transcript_sentences))
+        # print(len(summary_sentences))
+
+        print(f"BERTopic Evaluating Summary of {self.video_id}...")
+        # 使用BERTopic進行主題建模
+        topic_model = BERTopic()
+        
+        similarity = []
+        for i in range(0,10):
+
+            # 對transcript的句子進行主題建模
+            transcript_topics, _ = topic_model.fit_transform(transcript_sentences)
+            # print(topic_model.get_topic_info())
+            transcript_embedding = [word[1] for word in topic_model.get_topic(transcript_topics[0])]
+            
+            # 對summary的句子進行主題建模
+            summary_topics, _ = topic_model.fit_transform(summary_sentences)
+            # print(topic_model.get_topic_info())
+            summary_embedding = [word[1] for word in topic_model.get_topic(summary_topics[0])]
+            
+            # 計算transcript和summary主題之間的餘弦相似性
+            cosine_sim = cosine_similarity([transcript_embedding], [summary_embedding])[0][0]
+            
+            similarity.append(round(cosine_sim,2))
+
+        # return similarity
+        print(f"BERTopics Cosine Similarity: {similarity}")
+        
+
+    def single_summary(self):
+
+        print(self.transcript[0:30])
+
+        messages = [
+            {"role": "system", "content": version1.system},
+            # {"role": "assistant", "content": doc.page_content},
+            {"role": "user", "content": version1.user + '\n\n' + f'transcript: {self.transcript}'},
+        ]
+
+        # print(messages)
+
+        response = openai.ChatCompletion.create(
+            model="gpt-4-0613",
+            messages=messages,
+            temperature=0
+        )
+
+        summary = response['choices'][0]['message']['content']
+        print(f"Prompt Token: {response['usage']['prompt_tokens']}.  Completion Tokens: {response['usage']['completion_tokens']}. Total tokens: {response['usage']['total_tokens']}")
+
+        # Export to txt
+        with open(f'./summary/{self.video_id}_single_v1_summary.txt', 'w') as f:
+            f.write(summary)       
+
 
 if __name__ == '__main__':
 
-    # YoutubeSummary().evaluate_transcript()    
     # YoutubeSummary(video_id).gen_topics()
     # YoutubeSummary().functioning_api()
-    # YoutubeSummary().run_bullet_points_summary()
     # YoutubeSummary('Bazoq4mGWdU').embedding()
     # YoutubeSummary().retriever()
     # YoutubeSummary().query()
-    video_id = 'lihE0cB2N-U'
+    video_id = 'Vwh2QwU9NhA'
     print(f"Video ID: {video_id}")
-    YoutubeSummary(video_id).bullet_points()
-    YoutubeSummary(video_id).cluster()
-    YoutubeSummary(video_id).title_and_summary()
+
+    tokens = YoutubeSummary(video_id).evaluate_transcript()
+    
+    if tokens <= 450:
+        print("do it by 1 API call")
+        YoutubeSummary(video_id).single_summary()
+    elif tokens >= 32000:
+        print("do it by topic modeling")
+    else:
+        print(f"do it by Map-Reduce")
+        YoutubeSummary(video_id).bullet_points()
+        btokens = YoutubeSummary(video_id).evaluate_bulle_points()
+        if btokens <= 5000:
+            YoutubeSummary(video_id).cluster()
+            YoutubeSummary(video_id).title_and_summary()
+        elif btokens <= 10000:
+            print("do it by 32K API to get cluster & title & summary")
+        else:
+            print("do it by claude")
+
+    # YoutubeSummary(video_id).bertopic()
+

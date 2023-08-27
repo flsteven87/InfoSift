@@ -7,7 +7,6 @@ tiktoken
 python-dotenv
 pytube
 pydub
-openai-whisper
 #pip install -U openai-whisper
 streamlit
 webvtt-py
@@ -15,3 +14,8 @@ matplotlib
 scipy
 jupyter
 ipykernel
+bertopic
+yt-dlp
+ane_transformers
+openai-whisper
+coremltools

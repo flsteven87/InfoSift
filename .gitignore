@@ -162,6 +162,5 @@ cython_debug/
 #data
 topics/*
 video/*
-summary/*
 archived/*
 .DS_Store
